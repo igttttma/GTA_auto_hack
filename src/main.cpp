@@ -51,6 +51,7 @@ HWND g_flashingOverlay = nullptr;
 HWND g_chooseFingerprintOverlay = nullptr;
 HWND g_sortFingerprintOverlay = nullptr;
 HWND g_matchOverlay = nullptr;
+HWND g_doomsdayUnlockOverlay = nullptr;
 bool g_applyModeWhenWorkerStops = false;
 
 enum class GameKind {
@@ -62,6 +63,7 @@ enum class GameKind {
   Fleeca,
   FindNumber,
   Match,
+  DoomsdayUnlock,
 };
 
 std::wstring GameName(GameKind game) {
@@ -80,6 +82,8 @@ std::wstring GameName(GameKind game) {
       return T("game.find_number");
     case GameKind::Match:
       return T("game.match");
+    case GameKind::DoomsdayUnlock:
+      return T("game.doomsday_unlock");
     default:
       return T("game.none");
   }
@@ -91,6 +95,7 @@ void HideAllGameOverlays() {
   gta5::games::choose_fingerprint::ClearOverlay();
   gta5::games::sort_fingerprint::ClearOverlay();
   gta5::games::match::ClearOverlay();
+  gta5::games::doomsday_unlock::ClearOverlay();
 }
 
 void ResetAllInGameCaches() {
@@ -101,6 +106,7 @@ void ResetAllInGameCaches() {
   gta5::games::fleeca::ResetInGameCache();
   gta5::games::find_number::ResetInGameCache();
   gta5::games::match::ResetInGameCache();
+  gta5::games::doomsday_unlock::ResetInGameCache();
 }
 
 GameKind DetectGame(const gta5::capture::GameFrame& frame) {
@@ -112,6 +118,7 @@ GameKind DetectGame(const gta5::capture::GameFrame& frame) {
   // Its blue-bar signature is intentionally last so it cannot shadow older games.
   if (gta5::games::find_number::DetectInGame(frame)) return GameKind::FindNumber;
   if (gta5::games::match::DetectInGame(frame)) return GameKind::Match;
+  if (gta5::games::doomsday_unlock::DetectInGame(frame)) return GameKind::DoomsdayUnlock;
   return GameKind::None;
 }
 
@@ -294,6 +301,12 @@ void WorkerMain() {
         break;
       case GameKind::Match:
         completed = gta5::games::match::RunSession(
+            [] { return gta5::app::runtime::StopRequested(); },
+            [] { return gta5::app::ui::OverlayEnabled(); },
+            [](const std::wstring& text) { PostStatus(text); });
+        break;
+      case GameKind::DoomsdayUnlock:
+        completed = gta5::games::doomsday_unlock::RunSession(
             [] { return gta5::app::runtime::StopRequested(); },
             [] { return gta5::app::ui::OverlayEnabled(); },
             [](const std::wstring& text) { PostStatus(text); });
@@ -514,6 +527,14 @@ void RegisterClasses(HINSTANCE inst) {
   match.lpszClassName = L"Gta7In1MatchOverlayV1";
   RegisterClassW(&match);
 
+  WNDCLASSW doomsdayUnlock{};
+  doomsdayUnlock.lpfnWndProc = gta5::games::doomsday_unlock::OverlayWindowProc;
+  doomsdayUnlock.hInstance = inst;
+  doomsdayUnlock.hCursor = LoadCursor(nullptr, IDC_ARROW);
+  doomsdayUnlock.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+  doomsdayUnlock.lpszClassName = L"Gta7In1DoomsdayUnlockOverlayV1";
+  RegisterClassW(&doomsdayUnlock);
+
   WNDCLASSW toast{};
   toast.lpfnWndProc = gta5::app::ui::ToastProc;
   toast.hInstance = inst;
@@ -531,18 +552,21 @@ void DestroyGameOverlayWindows() {
   if (g_chooseFingerprintOverlay) DestroyWindow(g_chooseFingerprintOverlay);
   if (g_sortFingerprintOverlay) DestroyWindow(g_sortFingerprintOverlay);
   if (g_matchOverlay) DestroyWindow(g_matchOverlay);
+  if (g_doomsdayUnlockOverlay) DestroyWindow(g_doomsdayUnlockOverlay);
   g_cursorOverlay = nullptr;
   g_marksOverlay = nullptr;
   g_flashingOverlay = nullptr;
   g_chooseFingerprintOverlay = nullptr;
   g_sortFingerprintOverlay = nullptr;
   g_matchOverlay = nullptr;
+  g_doomsdayUnlockOverlay = nullptr;
   gta5::games::slider::SetCursorWindow(nullptr);
   gta5::games::slider::SetMarksWindow(nullptr);
   gta5::games::flashing::SetOverlayWindow(nullptr);
   gta5::games::choose_fingerprint::SetOverlayWindow(nullptr);
   gta5::games::sort_fingerprint::SetOverlayWindow(nullptr);
   gta5::games::match::SetOverlayWindow(nullptr);
+  gta5::games::doomsday_unlock::SetOverlayWindow(nullptr);
 }
 
 void CreateGameOverlayWindows(HINSTANCE inst, const RECT& hudRect) {
@@ -613,6 +637,16 @@ void CreateGameOverlayWindows(HINSTANCE inst, const RECT& hudRect) {
   if (g_matchOverlay) {
     SetLayeredWindowAttributes(g_matchOverlay, RGB(0, 0, 0), 255, LWA_COLORKEY);
     ShowWindow(g_matchOverlay, SW_HIDE);
+  }
+
+  g_doomsdayUnlockOverlay = CreateWindowExW(
+      WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+      L"Gta7In1DoomsdayUnlockOverlayV1", L"Auto Hack 7in1 Doomsday Unlock Overlay",
+      WS_POPUP, virtualX, virtualY, virtualW, virtualH, nullptr, nullptr, inst, nullptr);
+  gta5::games::doomsday_unlock::SetOverlayWindow(g_doomsdayUnlockOverlay);
+  if (g_doomsdayUnlockOverlay) {
+    SetLayeredWindowAttributes(g_doomsdayUnlockOverlay, RGB(0, 0, 0), 255, LWA_COLORKEY);
+    ShowWindow(g_doomsdayUnlockOverlay, SW_HIDE);
   }
 }
 

@@ -1,0 +1,23 @@
+-- 预设脚本：每个调用是一步，可单步执行
+-- rotate 负责定位（自动选中，到位自停），wait(destroyed) 确认战果
+-- 谓词: beam.hits(id) / beam.terminal(id) / destroyed(id) / selected(id)
+--       any(p1, p2) / all(p1, p2) 组合条件
+-- 查询: angles() / alive()
+rotate("M06", 45)
+rotate("M08", 30)
+rotate("M03", 0)
+wait(destroyed("T01"), { timeout = 10 })
+rotate("M06", 90)
+wait(destroyed("T06"), { timeout = 10 })
+rotate("M06", 70)
+rotate("M08", 150)
+wait(destroyed("T09"), { timeout = 10 })
+rotate("M06", 90)
+wait(destroyed("T07"), { timeout = 10 })
+rotate("M01", 20)
+wait(destroyed("T03"), { timeout = 10 })
+rotate("M01", 45)
+wait(destroyed("T04"), { timeout = 10 })
+rotate("M01", 65)
+wait(destroyed("T05"), { timeout = 10 })
+rotate("M07", 135)

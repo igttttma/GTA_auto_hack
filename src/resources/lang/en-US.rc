@@ -141,4 +141,5 @@ BEGIN
   IDS_STATUS_MATCH_COMPLETE "signal matching: completed"
   IDS_STATUS_MATCH_EXITED "signal matching: minigame exited"
   IDS_STATUS_MATCH_NO_SOLUTION "signal matching: no valid combination"
+  IDS_GAME_DOOMSDAY_UNLOCK "Doomsday unlock"
 END

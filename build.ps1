@@ -8,13 +8,14 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $MingwBin = "C:\mingw64\bin"
+$Gcc = Join-Path $MingwBin "gcc.exe"
 $Gxx = Join-Path $MingwBin "g++.exe"
 $Windres = Join-Path $MingwBin "windres.exe"
-$Output = Join-Path $Root "auto_hack_5in1.exe"
+$Output = Join-Path $Root "auto_hack_7in1.exe"
 $Configuration = if ($Debug) { "Debug" } else { "Release" }
 $BuildDir = Join-Path $Root ("build-mingw-" + $Configuration.ToLowerInvariant())
 
-foreach ($compiler in @($Gxx, $Windres)) {
+foreach ($compiler in @($Gcc, $Gxx, $Windres)) {
   if (-not (Test-Path -LiteralPath $compiler)) {
     throw "Required MinGW tool not found: $compiler"
   }
@@ -42,6 +43,7 @@ $configureArgs = @(
   "-B", $BuildDir,
   "-G", "Ninja",
   "-DCMAKE_BUILD_TYPE=$Configuration",
+  "-DCMAKE_C_COMPILER=$($Gcc.Replace('\', '/'))",
   "-DCMAKE_CXX_COMPILER=$($Gxx.Replace('\', '/'))",
   "-DCMAKE_RC_COMPILER=$($Windres.Replace('\', '/'))",
   "-DCMAKE_MAKE_PROGRAM=$($Ninja.Replace('\', '/'))"

@@ -9,6 +9,7 @@ A Windows C++/Win32 helper for the following GTA Online hacking minigames:
 - Fleeca circuit breaker
 - Find the number / BruteForce
 - Signal matching
+- Doomsday unlock
 
 The app detects the active supported minigame, shows a small HUD/overlay, and uses screen analysis plus simulated key input to complete the detected sequence.
 On activation it locates the visible GTA V client area (`GTA5_Enhanced.exe` or `GTA5.exe`), captures only that area, and downsizes it proportionally only when its height exceeds 1080 pixels.
@@ -47,6 +48,8 @@ $resourceObject = Join-Path $env:TEMP "auto_hack_7in1_app_$PID.o"
   "$root\src\app\app_runtime.cpp" `
   "$root\src\capture\game_window.cpp" `
   "$root\src\input\key_input.cpp" `
+  "$root\src\input\held_key_input.cpp" `
+  "$root\src\input\mouse_input.cpp" `
   "$root\src\games\slider_module.cpp" `
   "$root\src\games\flashing_module.cpp" `
   "$root\src\games\choose_fingerprint_module.cpp" `
@@ -54,6 +57,14 @@ $resourceObject = Join-Path $env:TEMP "auto_hack_7in1_app_$PID.o"
   "$root\src\games\fleeca_module.cpp" `
   "$root\src\games\find_number_module.cpp" `
   "$root\src\games\match_module.cpp" `
+  "$root\src\games\doomsday_unlock_module\doomsday_unlock_module.cpp" `
+  "$root\src\games\doomsday_unlock_module\imgproc\imgproc.cpp" `
+  "$root\src\games\doomsday_unlock_module\vision\vision.cpp" `
+  "$root\src\games\doomsday_unlock_module\tracking\tracking.cpp" `
+  "$root\src\games\doomsday_unlock_module\json\json.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\level_matcher.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\motion.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\preset_host.cpp" `
   $resourceObject `
   -lgdi32 -luser32 -lshell32 -lgdiplus -lcomctl32 -ldwmapi `
   -o "$root\auto_hack_7in1.exe"
@@ -78,6 +89,8 @@ cl /nologo /std:c++17 /EHsc /O2 /MT /DUNICODE /D_UNICODE /DNOMINMAX `
   "$root\src\app\app_runtime.cpp" `
   "$root\src\capture\game_window.cpp" `
   "$root\src\input\key_input.cpp" `
+  "$root\src\input\held_key_input.cpp" `
+  "$root\src\input\mouse_input.cpp" `
   "$root\src\games\slider_module.cpp" `
   "$root\src\games\flashing_module.cpp" `
   "$root\src\games\choose_fingerprint_module.cpp" `
@@ -85,6 +98,14 @@ cl /nologo /std:c++17 /EHsc /O2 /MT /DUNICODE /D_UNICODE /DNOMINMAX `
   "$root\src\games\fleeca_module.cpp" `
   "$root\src\games\find_number_module.cpp" `
   "$root\src\games\match_module.cpp" `
+  "$root\src\games\doomsday_unlock_module\doomsday_unlock_module.cpp" `
+  "$root\src\games\doomsday_unlock_module\imgproc\imgproc.cpp" `
+  "$root\src\games\doomsday_unlock_module\vision\vision.cpp" `
+  "$root\src\games\doomsday_unlock_module\tracking\tracking.cpp" `
+  "$root\src\games\doomsday_unlock_module\json\json.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\level_matcher.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\motion.cpp" `
+  "$root\src\games\doomsday_unlock_module\preset\preset_host.cpp" `
   "$resourceFile" `
   /link /SUBSYSTEM:WINDOWS `
   /OUT:"$root\auto_hack_7in1.exe" `

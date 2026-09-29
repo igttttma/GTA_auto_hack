@@ -151,6 +151,7 @@ const std::unordered_map<std::string, UINT>& StringIds() {
       {"game.fleeca", IDS_GAME_FLEECA},
       {"game.find_number", IDS_GAME_FIND_NUMBER},
       {"game.match", IDS_GAME_MATCH},
+      {"game.doomsday_unlock", IDS_GAME_DOOMSDAY_UNLOCK},
       {"game.none", IDS_GAME_NONE},
   };
   return ids;

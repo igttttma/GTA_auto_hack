@@ -85,3 +85,14 @@ bool RunSession(const std::function<bool()>& stopRequested,
                 const std::function<void(const std::wstring&)>& status);
 LRESULT CALLBACK OverlayWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 }  // namespace gta5::games::match
+
+namespace gta5::games::doomsday_unlock {
+bool DetectInGame(const gta5::capture::GameFrame& frame);
+void ResetInGameCache();
+bool RunSession(const std::function<bool()>& stopRequested,
+                const std::function<bool()>& overlayEnabled,
+                const std::function<void(const std::wstring&)>& status);
+void SetOverlayWindow(HWND hwnd);
+void ClearOverlay();
+LRESULT CALLBACK OverlayWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+}  // namespace gta5::games::doomsday_unlock
