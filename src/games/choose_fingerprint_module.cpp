@@ -789,7 +789,7 @@ static bool detectComponentBoxesByBorder(const Frame& f, const RoiInfo& roi, std
 
     int minDist = scaledPx(f, 10);
     auto xs = edgeLinePeaks(vertical, search.x, minDist, 0.45);
-    auto ys = edgeLinePeaks(horizontal, search.y, minDist, 0.45);
+    auto ys = edgeLinePeaks(horizontal, search.y, minDist, 0.18);
 
     int minSide = std::max(scaledPx(f, 45), (int)std::lround(cb.w * 0.16));
     int maxSide = std::max(minSide + 1, (int)std::lround(cb.w * 0.36));
@@ -884,6 +884,7 @@ static int detectLevelMarker(const Frame& f, Rect signalsBar, std::string* diag 
     const int maxRun = std::max(minRun + 1, (int)std::lround(signalsBar.w * 0.27));
     const int maxGap = scaledPx(f, 3);
     int bestLeft = -1, bestRight = -1, bestY = -1;
+    double bestScore = -1e100;
 
     auto linePixel = [&](int x, int y) {
         const size_t p = (static_cast<size_t>(y) * f.w + x) * 4;
@@ -909,11 +910,19 @@ static int detectLevelMarker(const Frame& f, Rect signalsBar, std::string* diag 
             if (!gapEnded && !rowEnded) continue;
 
             const int runWidth = lastOn - runStart + 1;
-            if (runWidth >= minRun && runWidth <= maxRun &&
-                runWidth > bestRight - bestLeft + 1) {
+            if (runWidth >= minRun && runWidth <= maxRun) {
+                const double yProgress = (y - yStart) / (double)std::max(1, yEnd - yStart - 1);
+                const double widthScore = runWidth / (double)std::max(1, maxRun);
+                const double score = yProgress * 3.0 + widthScore;
+                if (score <= bestScore) {
+                    runStart = -1;
+                    lastOn = -1;
+                    continue;
+                }
                 bestLeft = runStart;
                 bestRight = lastOn;
                 bestY = y;
+                bestScore = score;
             }
             runStart = -1;
             lastOn = -1;
@@ -2021,8 +2030,14 @@ bool RunSession(const std::function<bool()>& stopRequested,
           cache = {};
         }
       }
+      Rect markerLine;
       if (geometry.valid) {
-        levelMarker = detectLevelMarker(frame, geometry.roi.bars.signals);
+        levelMarker = detectLevelMarker(frame, geometry.roi.bars.signals, nullptr, &markerLine);
+        if (levelMarker >= 0 && markerLine.w > 0 && retainedUsable) {
+          retainedState.levelMarker = levelMarker;
+          retainedState.levelMarkerLine = scaleRectToScreen(frame, markerLine);
+          if (overlayEnabled()) publishState(retainedState);
+        }
       }
 
       if (levelMarker >= 0 && levelMarker != automation.plannedLevelMarker) {
