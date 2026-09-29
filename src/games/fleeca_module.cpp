@@ -225,26 +225,52 @@ Point connector_mouth(const Box& box, const Image& image) {
 std::optional<Connectors> find_connectors(const Image& image) {
     int total = image.width * image.height;
     std::vector<uint8_t> mask(total), seen(total);
-    for (int y = 0; y < image.height; ++y) for (int x = 0; x < image.width; ++x) {
-        const auto* p = image.pixel(x, y);
-        int low = std::min({int(p[0]), int(p[1]), int(p[2])});
-        int high = std::max({int(p[0]), int(p[1]), int(p[2])});
-        mask[y * image.width + x] = high - low <= 18 && high >= 55 && high <= 190;
+    auto classify_row = [&](int y, int x1, int x2) {
+        for (int x = x1; x < x2; ++x) {
+            const auto* p = image.pixel(x, y);
+            int low = std::min({int(p[0]), int(p[1]), int(p[2])});
+            int high = std::max({int(p[0]), int(p[1]), int(p[2])});
+            mask[y * image.width + x] = high - low <= 18 && high >= 55 && high <= 190;
+        }
+    };
+
+    // A connector center must be in the outer 24% and its longest side is at
+    // most 9.5% of the image height. Include half that maximum side plus a
+    // rounding margin so every valid connector is fully classified, including
+    // in narrow or non-1080p windows. Permitted non-gray texture is handled by
+    // the fill and texture checks below, not cropped out here.
+    const double maximum_half_side = image.height * 0.095 * 0.5;
+    const int border_x = std::clamp(
+        static_cast<int>(std::ceil(image.width * 0.24 + maximum_half_side)) + 1,
+        1, image.width);
+    const int border_y = std::clamp(
+        static_cast<int>(std::ceil(image.height * 0.24 + maximum_half_side)) + 1,
+        1, image.height);
+    const int bottom_start = std::max(border_y, image.height - border_y);
+    for (int y = 0; y < border_y; ++y) classify_row(y, 0, image.width);
+    for (int y = border_y; y < bottom_start; ++y) {
+        classify_row(y, 0, border_x);
+        classify_row(y, std::max(border_x, image.width - border_x), image.width);
     }
+    for (int y = bottom_start; y < image.height; ++y) classify_row(y, 0, image.width);
+
     std::vector<Box> boxes;
+    std::vector<int> todo;
     constexpr int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1};
     constexpr int dy[] = {-1, -1, -1, 0, 0, 1, 1, 1};
     for (int start = 0; start < total; ++start) {
         if (!mask[start] || seen[start]) continue;
-        std::queue<int> todo; todo.push(start); seen[start] = 1;
+        todo.clear();
+        todo.push_back(start);
+        seen[start] = 1;
         int area = 0, x1 = image.width, y1 = image.height, x2 = 0, y2 = 0;
         while (!todo.empty()) {
-            int at = todo.front(); todo.pop(); int x = at % image.width, y = at / image.width;
+            int at = todo.back(); todo.pop_back(); int x = at % image.width, y = at / image.width;
             ++area; x1 = std::min(x1, x); y1 = std::min(y1, y); x2 = std::max(x2, x); y2 = std::max(y2, y);
             for (int i = 0; i < 8; ++i) { int nx = x + dx[i], ny = y + dy[i];
                 if (nx < 0 || ny < 0 || nx >= image.width || ny >= image.height) continue;
                 int next = ny * image.width + nx;
-                if (mask[next] && !seen[next]) { seen[next] = 1; todo.push(next); }
+                if (mask[next] && !seen[next]) { seen[next] = 1; todo.push_back(next); }
             }
         }
         int width = x2 - x1 + 1, height = y2 - y1 + 1;
