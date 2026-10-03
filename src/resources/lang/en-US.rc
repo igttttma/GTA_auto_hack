@@ -142,4 +142,11 @@ BEGIN
   IDS_STATUS_MATCH_EXITED "signal matching: minigame exited"
   IDS_STATUS_MATCH_NO_SOLUTION "signal matching: no valid combination"
   IDS_GAME_DOOMSDAY_UNLOCK "Doomsday unlock"
+  IDS_STATUS_DOOMSDAY_LOCATING "Doomsday unlock: locating"
+  IDS_STATUS_DOOMSDAY_RUNNING "Doomsday unlock: running"
+  IDS_STATUS_DOOMSDAY_COMPLETED "Doomsday unlock: completed"
+  IDS_STATUS_DOOMSDAY_EXITED "Doomsday unlock: minigame exited"
+  IDS_STATUS_DOOMSDAY_FAILED "Doomsday unlock: failed"
+  IDS_STATUS_DOOMSDAY_STOPPED "Doomsday unlock: stopped"
+  IDS_STATUS_DOOMSDAY_CAPTURE_FAILED "Doomsday unlock: capture failed"
 END

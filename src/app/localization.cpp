@@ -152,6 +152,13 @@ const std::unordered_map<std::string, UINT>& StringIds() {
       {"game.find_number", IDS_GAME_FIND_NUMBER},
       {"game.match", IDS_GAME_MATCH},
       {"game.doomsday_unlock", IDS_GAME_DOOMSDAY_UNLOCK},
+      {"status.doomsday.locating", IDS_STATUS_DOOMSDAY_LOCATING},
+      {"status.doomsday.running", IDS_STATUS_DOOMSDAY_RUNNING},
+      {"status.doomsday.completed", IDS_STATUS_DOOMSDAY_COMPLETED},
+      {"status.doomsday.exited", IDS_STATUS_DOOMSDAY_EXITED},
+      {"status.doomsday.failed", IDS_STATUS_DOOMSDAY_FAILED},
+      {"status.doomsday.stopped", IDS_STATUS_DOOMSDAY_STOPPED},
+      {"status.doomsday.capture_failed", IDS_STATUS_DOOMSDAY_CAPTURE_FAILED},
       {"game.none", IDS_GAME_NONE},
   };
   return ids;

@@ -61,9 +61,7 @@ class ObserverApp : public preset::HostContext {
     return last_tracked_.get();
   }
   long long FrameNumber() const override { return frame_number_; }
-  void OnScriptLog(const std::string& text) override {
-    Report("PRESET | " + text);
-  }
+  void OnScriptLog(const std::string& text) override { (void)text; }
 
  private:
   ObserverApp() = default;
@@ -76,7 +74,7 @@ class ObserverApp : public preset::HostContext {
   void WritePresetFrame(const tracking::TrackingFrame& tracked);
   bool Start();
   void Stop();
-  void Report(const std::string& message);
+  void Report(const char* localization_key);
   void ObserveFrame();
   void RefreshTargetAlive(const imgproc::Mat8& frame);
   bool ConfigureRegion(const RECT& client_rect);
@@ -124,7 +122,6 @@ class ObserverApp : public preset::HostContext {
   static constexpr int kIngameFastMissTolerance = 4;
   long long frame_number_ = 0;
   double started_at_ = 0;
-  double last_status_update_ = 0;
   double last_frame_pc_ = 0;
   double fps_ema_ = 0;
   std::map<std::string, std::vector<int>> alive_recent_;

@@ -1,6 +1,7 @@
 #include "doomsday_unlock_module.h"
 
 #include "common/processing.h"
+#include "app/localization.h"
 
 #include <cmath>
 #include <chrono>
@@ -30,21 +31,6 @@ double NowSeconds() {
   LARGE_INTEGER now;
   QueryPerformanceCounter(&now);
   return static_cast<double>(now.QuadPart) / static_cast<double>(freq.QuadPart);
-}
-
-std::string TimeStamp() {
-  SYSTEMTIME st;
-  GetLocalTime(&st);
-  char buf[16];
-  std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", st.wHour, st.wMinute,
-                st.wSecond);
-  return buf;
-}
-
-std::string FormatMs(double ms) {
-  char buf[32];
-  std::snprintf(buf, sizeof(buf), "%.3f", ms);
-  return buf;
 }
 
 std::wstring WidenAscii(const std::string& text) {
@@ -106,8 +92,8 @@ ObserverApp& ObserverApp::Instance() {
   return app;
 }
 
-void ObserverApp::Report(const std::string& message) {
-  if (status_) status_(WidenAscii("doomsday: " + message));
+void ObserverApp::Report(const char* localization_key) {
+  if (status_) status_(gta5::app::l10n::Text(localization_key));
 }
 
 void ObserverApp::SetOverlayWindow(HWND hwnd) {
@@ -216,15 +202,15 @@ void ObserverApp::StopGrabber() {
 
 bool ObserverApp::Start() {
   if (active_) return true;
-  Report("locating");
+  Report("status.doomsday.locating");
   if (!FindGameWindow()) {
-    Report("window not found");
+    Report("status.doomsday.failed");
     return false;
   }
 
   RECT client{};
   if (!GetGameClientRect(client)) {
-    Report("capture failed");
+    Report("status.doomsday.capture_failed");
     return false;
   }
   GameFrame frame;
@@ -235,7 +221,7 @@ bool ObserverApp::Start() {
     CaptureGameFrameStatus(frame, nullptr);
   }
   if (frame.bgra.empty()) {
-    Report("capture failed");
+    Report("status.doomsday.capture_failed");
     return false;
   }
   // capture module owns scaling (>1080 -> 1080): this IS the processing frame
@@ -247,7 +233,7 @@ bool ObserverApp::Start() {
   const vision::GateResult ingame =
       vision_.Ingame(processing_frame_, &ingame_anchors_);
   if (ingame.status != "YES") {
-    Report("minigame lost");
+    Report("status.doomsday.failed");
     return false;
   }
 
@@ -260,13 +246,11 @@ bool ObserverApp::Start() {
   bool scene_ready = false;
   for (int attempt = 1; attempt <= kInitAttempts && !scene_ready; ++attempt) {
     if (attempt > 1) {
-      Report("init retry " + std::to_string(attempt) + "/" +
-             std::to_string(kInitAttempts));
       Sleep(kInitRetryDelayMs);
       GameFrame retry_frame;
       CaptureGameFrameStatus(retry_frame, nullptr);
       if (retry_frame.bgra.empty()) {
-        Report("capture failed");
+        Report("status.doomsday.capture_failed");
         return false;
       }
       if (retry_frame.width != processing_w_ ||
@@ -278,7 +262,7 @@ bool ObserverApp::Start() {
       }
       processing_frame_ = FrameToBgr(retry_frame);
       if (vision_.Ingame(processing_frame_, &ingame_anchors_).status != "YES") {
-        Report("minigame lost");
+        Report("status.doomsday.failed");
         return false;
       }
     }
@@ -287,9 +271,6 @@ bool ObserverApp::Start() {
     const vision::GateResult entities =
         vision_.DetectLiveScene(processing_frame_, ingame.rect, &model);
     if (entities.status != "YES") {
-      Report("init attempt " + std::to_string(attempt) + " scene not ready | " +
-             entities.status + " reason=" + entities.reason +
-             " conf=" + FormatMs(entities.confidence));
       continue;
     }
 
@@ -305,9 +286,7 @@ bool ObserverApp::Start() {
     try {
       match = matcher::MatchLevel(mirrors, targets, model.playfield);
     } catch (const std::exception& exc) {
-      Report("init attempt " + std::to_string(attempt) + " level match failed | " +
-             exc.what() + " (mirrors=" + std::to_string(mirrors.size()) +
-             " targets=" + std::to_string(targets.size()) + ")");
+      (void)exc;
       continue;
     }
     if (!match.missing_mirrors.empty()) {
@@ -315,14 +294,6 @@ bool ObserverApp::Start() {
       // transient miss, e.g. the top-left mirror behind the game UI). The
       // level preset needs every one of them, so re-detect instead of
       // starting an attack that would abort on an unknown mirror id.
-      std::string ids;
-      for (const auto& id : match.missing_mirrors) {
-        if (!ids.empty()) ids += ", ";
-        ids += id;
-      }
-      Report("init attempt " + std::to_string(attempt) + " level" +
-             std::to_string(match.level) + " missing mirrors [" + ids +
-             "] (detected " + std::to_string(mirrors.size()) + ")");
       continue;
     }
     scene_ = model;
@@ -330,8 +301,7 @@ bool ObserverApp::Start() {
     scene_ready = true;
   }
   if (!scene_ready) {
-    Report("scene not ready after " + std::to_string(kInitAttempts) +
-           " attempts");
+    Report("status.doomsday.failed");
     return false;
   }
 
@@ -354,7 +324,7 @@ bool ObserverApp::Start() {
   }
 
   if (!ConfigureRegion(client)) {
-    Report("region setup failed");
+    Report("status.doomsday.failed");
     tracker_storage_.reset();
     tracker_ = nullptr;
     return false;
@@ -396,10 +366,7 @@ bool ObserverApp::Start() {
     }
   });
 
-  int mirrorCount = static_cast<int>(scene_.mirrors.size());
-  int targetCount = static_cast<int>(scene_.targets.size());
-  (void)targetCount;
-  Report("running level solver");
+  Report("status.doomsday.running");
   // F6 one-key flow: the attack (level match + Lua preset) fires as soon as
   // the first observed frame has been tracked; terminal state -> Stop()
   auto_attack_pending_ = true;
@@ -456,7 +423,7 @@ bool ObserverApp::ConfigureRegion(const RECT& client_rect) {
 void ObserverApp::DroppedCaptureFrame() {
   ++capture_missing_frames_;
   if (capture_missing_frames_ <= 2) return;
-  Report("NO | CAPTURE | 3 consecutive client frames failed; observation stopped");
+  Report("status.doomsday.capture_failed");
   Stop();
 }
 
@@ -476,15 +443,11 @@ void ObserverApp::RefreshTargetAlive(const imgproc::Mat8& frame) {
     target.core_cyan = core;
     if (misses >= kAliveMissLimit) {
       target.alive = false;
-      Report("UNCERTAIN | TARGET | " + target.id + " no longer present (core=" +
-             std::to_string(core).substr(0, 4) + " misses=" +
-             std::to_string(misses) + "/" + std::to_string(recent.size()) + ")");
     }
   }
 }
 
 void ObserverApp::ObserveFrame() {
-  const double totalStarted = NowSeconds();
   RECT client{};
   if (!GetGameClientRect(client)) {
     DroppedCaptureFrame();
@@ -587,7 +550,7 @@ void ObserverApp::ObserveFrame() {
       const vision::GateResult full =
           vision_.Ingame(processing_frame_, &ingame_anchors_);
       if (full.status != "YES") {
-        Report("minigame exited");
+        Report("status.doomsday.exited");
         Stop();
         return;
       }
@@ -598,7 +561,7 @@ void ObserverApp::ObserveFrame() {
         vision_.Ingame(processing_frame_, &ingame_anchors_);
     if (ingame.status != "YES") {
       if (++ingame_missing_frames_ >= 4) {
-        Report("minigame exited");
+        Report("status.doomsday.exited");
         Stop();
       }
       return;
@@ -622,7 +585,6 @@ void ObserverApp::ObserveFrame() {
   for (const auto& observed : tracked.mirrors) {
     if (observed.misses == kLostFrameDumpAt &&
         lost_dumped_.insert(observed.mirror_id).second) {
-      Report("tracking unstable: " + observed.mirror_id);
     }
   }
   for (auto& mirror : scene_.mirrors) {
@@ -645,7 +607,6 @@ void ObserverApp::ObserveFrame() {
           std::fmod(observed.angle_deg - it->second + 270.0, 180.0) - 90.0;
       if (std::fabs(jump) > kGhostDumpJumpDeg) {
         ++ghost_dumps_;
-        Report("angle unstable: " + observed.mirror_id);
       }
     }
     last_sel_angle_[observed.mirror_id] = observed.angle_deg;
@@ -812,19 +773,7 @@ void ObserverApp::ObserveFrame() {
     ClearOverlay();
   }
 
-  const double totalMs = (NowSeconds() - totalStarted) * 1000.0;
   ++frame_number_;
-
-  static int overBudgetStreak = 0;
-  overBudgetStreak = totalMs > 33.333 ? overBudgetStreak + 1 : 0;
-  const double now = NowSeconds();
-  if (now - last_status_update_ >= 0.5) {
-    const std::string budget =
-        overBudgetStreak >= 5 ? "tracking slow" : "tracking";
-    Report(budget + " " + std::to_string(tracked.detected_count) + "/" +
-           std::to_string(tracked.mirrors.size()) + " mirrors");
-    last_status_update_ = now;
-  }
 }
 
 void ObserverApp::ApplyBinding(const matcher::MatchResult& match) {
@@ -867,13 +816,6 @@ void ObserverApp::ApplyBinding(const matcher::MatchResult& match) {
   }
   level_binding_ = match;
   has_binding_ = true;
-  std::string ids;
-  for (const auto& m : scene_.mirrors) {
-    if (!ids.empty()) ids += ", ";
-    ids += m.id;
-  }
-  Report("YES | BINDING | level" + std::to_string(match.level) +
-         " | mirrors [" + ids + "]");
 }
 
 void ObserverApp::StartAttack() {
@@ -888,14 +830,15 @@ void ObserverApp::StartAttack() {
   try {
     match = matcher::MatchLevel(mirrors, targets, scene_.playfield);
   } catch (const std::exception& exc) {
-    FailAttack(std::string("LEVEL_MATCH_FAILED: ") + exc.what());
+    (void)exc;
+    FailAttack("level match failed");
     return;
   }
   ApplyBinding(match);
 
   RECT client{};
   if (!GetGameClientRect(client)) {
-    FailAttack("CLIENT_RECT_LOST");
+    FailAttack("client rect lost");
     return;
   }
   preset_motion_->Bind(static_cast<double>(client.left),
@@ -915,7 +858,7 @@ void ObserverApp::StartAttack() {
   }
   std::ifstream presetFile(presetPath, std::ios::binary);
   if (!presetFile) {
-    FailAttack("NO_PRESET " + presetPath);
+    FailAttack("preset unavailable");
     return;
   }
   std::stringstream presetBuf;
@@ -928,16 +871,16 @@ void ObserverApp::StartAttack() {
       std::string());
   std::string error;
   if (!runner->Start(presetCode, &error)) {
-    FailAttack("PRESET_START_" + error);
+    (void)error;
+    FailAttack("preset start failed");
     return;
   }
   preset_runner_ = std::move(runner);
   attack_state_ = "PRESET_RUN";
-  Report("RUNNING | PRESET | level" + std::to_string(level) + " bound (" +
-         std::to_string(match.mirrors.size()) + " mirrors), running preset");
 }
 
 void ObserverApp::CancelAttack(const std::string& reason, bool report) {
+  (void)reason;
   const bool wasRunning = attack_state_ != "IDLE";
   if (preset_runner_ != nullptr) {
     preset_runner_->Stop();
@@ -947,11 +890,12 @@ void ObserverApp::CancelAttack(const std::string& reason, bool report) {
   game_input_->ReleaseAll();
   attack_state_ = "IDLE";
   if (report && wasRunning) {
-    Report("UNCERTAIN | ATTACK CANCELLED | " + reason + "; all keys released");
+    Report("status.doomsday.stopped");
   }
 }
 
 void ObserverApp::FailAttack(const std::string& reason) {
+  (void)reason;
   if (preset_runner_ != nullptr) {
     preset_runner_->Stop();
     preset_runner_.reset();
@@ -959,7 +903,7 @@ void ObserverApp::FailAttack(const std::string& reason) {
   preset_motion_->Cancel();
   game_input_->ReleaseAll();
   attack_state_ = "IDLE";
-  Report("NO | ATTACK | " + reason + " | all keys released");
+  Report("status.doomsday.failed");
   Stop();  // one-key flow: terminal state returns to standby
 }
 
@@ -970,7 +914,7 @@ void ObserverApp::PresetFinished() {
   game_input_->ReleaseAll();
   attack_state_ = "IDLE";
   completed_ = true;
-  Report("completed");
+  Report("status.doomsday.completed");
   Stop();  // one-key flow: clear overlay, stand by
 }
 
@@ -1014,7 +958,7 @@ void ObserverApp::Stop() {
   lost_dumped_.clear();
   capture_missing_frames_ = 0;
   ingame_missing_frames_ = 0;
-  Report(wasActive ? "stopped" : "inactive");
+  if (wasActive) Report("status.doomsday.stopped");
 }
 
 bool ObserverApp::RunSession(const std::function<bool()>& stopRequested,
