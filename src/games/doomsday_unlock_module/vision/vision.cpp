@@ -222,22 +222,27 @@ GateResult BoardVision::FindBoard(const imgproc::Mat8& frame,
     }
   }
 
+  if (!anchored) {
+    GateResult g;
+    g.gate = "BOARD";
+    g.status = "NO";
+    g.reason = "LCD_ANCHORS_NOT_FOUND";
+    return g;
+  }
+
   const int boardW = PyRound(height * 1.20);
   const int boardH = PyRound(height * 0.67);
-  if (anchored) {
-    const int px = PyRound(static_cast<double>(width - boardW) / 2);
-    const int py = PyRound(height * 0.175);
-    if (std::abs(rect[0] - px) <= 0.005 * height) rect[0] = px;
-    if (std::abs(rect[1] - py) <= 0.005 * height) rect[1] = py;
-  } else {
-    const int x = PyRound(static_cast<double>(width - boardW) / 2);
-    const int y = PyRound(height * 0.175);
-    if (x < 0 || y < 0 || x + boardW > width || y + boardH > height) {
-      GateResult g;
-      g.gate = "BOARD"; g.status = "NO"; g.reason = "CLIENT_ASPECT_UNSUPPORTED";
-      return g;
-    }
-    rect[0] = x; rect[1] = y; rect[2] = boardW; rect[3] = boardH;
+  const int px = PyRound(static_cast<double>(width - boardW) / 2);
+  const int py = PyRound(height * 0.175);
+  if (std::abs(rect[0] - px) <= 0.005 * height) rect[0] = px;
+  if (std::abs(rect[1] - py) <= 0.005 * height) rect[1] = py;
+  if (rect[0] < 0 || rect[1] < 0 ||
+      rect[0] + boardW > width || rect[1] + boardH > height) {
+    GateResult g;
+    g.gate = "BOARD";
+    g.status = "NO";
+    g.reason = "CLIENT_ASPECT_UNSUPPORTED";
+    return g;
   }
   const int x = rect[0], y = rect[1], w = rect[2], hgt = rect[3];
 
