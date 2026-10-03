@@ -72,6 +72,7 @@ HWND g_doomsdayUnlockOverlay = nullptr;
 bool g_applyModeWhenWorkerStops = false;
 bool g_pluginMode = false;
 std::atomic<bool> g_pluginSessionStarted{false};
+std::atomic<bool> g_pluginDetectionTimedOut{false};
 
 enum class GameKind {
   None,
@@ -340,6 +341,9 @@ void WorkerMain() {
   gta5::input::CancelAll();
 
   if (!completed && !gta5::app::runtime::StopRequested() && Clock::now() >= deadline) {
+    if (g_pluginMode) {
+      g_pluginDetectionTimedOut.store(true, std::memory_order_relaxed);
+    }
     PostLog(gameWindowFound ? L"timeout: no supported minigame detected in 20s"
                             : L"timeout: GTA5 window not found in 20s");
     PostStatus(gameWindowFound ? T("status.detect_timeout") : T("status.game_timeout"));
@@ -358,6 +362,7 @@ void WorkerMain() {
 void StartWorker() {
   if (gta5::app::runtime::Running()) return;
   g_pluginSessionStarted.store(false, std::memory_order_relaxed);
+  g_pluginDetectionTimedOut.store(false, std::memory_order_relaxed);
   gta5::input::CancelAll();
   ResetAllInGameCaches();
   gta5::input::ConfigureSequenceTiming(
@@ -412,6 +417,7 @@ LRESULT CALLBACK HostProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       gta5::app::ui::RegisterRawKeyboardInput(hwnd);
       return 0;
     case WM_INPUT: {
+      if (g_pluginMode) return 0;
       UINT size = 0;
       if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lp), RID_INPUT, nullptr, &size,
                           sizeof(RAWINPUTHEADER)) != 0 || size == 0) {
@@ -464,7 +470,8 @@ LRESULT CALLBACK HostProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         PostMessageW(hwnd, WM_APP + 21, 0, 0);
       }
       if (g_pluginMode &&
-          g_pluginSessionStarted.load(std::memory_order_relaxed)) {
+          (g_pluginSessionStarted.load(std::memory_order_relaxed) ||
+           g_pluginDetectionTimedOut.load(std::memory_order_relaxed))) {
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
       }
       gta5::app::ui::Repaint();
