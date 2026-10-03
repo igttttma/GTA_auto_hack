@@ -60,6 +60,7 @@ std::atomic<int> g_launchMode{static_cast<int>(LaunchMode::Resident)};
 std::atomic<int> g_delayPreset{static_cast<int>(DelayPreset::Fast)};
 std::atomic<bool> g_listeningHotkey{false};
 std::atomic<bool> g_panelExpanded{true};
+std::atomic<bool> g_pluginMode{false};
 std::atomic<bool> g_overlayEnabled{true};
 std::atomic<int> g_captureBackend{static_cast<int>(gta5::capture::Backend::Gdi)};
 std::mutex g_textMutex;
@@ -1227,8 +1228,20 @@ void CenterWindow(HWND hwnd, int width, int height, HWND owner = nullptr) {
 }  // namespace
 
 void SetHostWindow(HWND hwnd) { g_hostWnd = hwnd; }
-void SetHudWindow(HWND hwnd) { g_hudWnd = hwnd; }
+void SetHudWindow(HWND hwnd) {
+  g_hudWnd = hwnd;
+  if (g_hudWnd && PluginMode()) Collapse(g_hudWnd);
+}
 HWND HudWindow() { return g_hudWnd; }
+void SetPluginMode(bool enabled) {
+  g_pluginMode.store(enabled, std::memory_order_relaxed);
+  if (!enabled) return;
+  g_panelExpanded.store(false, std::memory_order_relaxed);
+  g_listeningHotkey.store(false, std::memory_order_relaxed);
+  HideHoverHint();
+  if (g_hudWnd) Collapse(g_hudWnd);
+}
+bool PluginMode() { return g_pluginMode.load(std::memory_order_relaxed); }
 void CollapseHud() {
   if (!g_hudWnd || !g_panelExpanded.load(std::memory_order_relaxed)) return;
   HideHoverHint();
@@ -1495,6 +1508,7 @@ LRESULT CALLBACK HudProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       POINT physicalPt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
       POINT pt = ToDesignPoint(physicalPt, g_hudDpi);
       RECT panel = PanelRect();
+      if (PluginMode()) return 0;
       if (!g_panelExpanded.load(std::memory_order_relaxed)) {
         Expand(hwnd);
         return 0;

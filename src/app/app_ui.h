@@ -20,6 +20,8 @@ enum class DelayPreset {
 void SetHostWindow(HWND hwnd);
 void SetHudWindow(HWND hwnd);
 HWND HudWindow();
+void SetPluginMode(bool enabled);
+bool PluginMode();
 void CollapseHud();
 
 void LoadPersistentSettings();

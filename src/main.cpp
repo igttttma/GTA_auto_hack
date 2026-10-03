@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <propidl.h>
 
+#include <atomic>
 #include <chrono>
 #include <cwchar>
 #include <memory>
@@ -42,6 +43,22 @@ DWORD ElevatedRestartParentId(const wchar_t* commandLine) {
   return processId && end && *end == L'\0' ? static_cast<DWORD>(processId) : 0;
 }
 
+bool HasPluginArgument(const wchar_t* commandLine) {
+  if (!commandLine) return false;
+  const wchar_t* cursor = commandLine;
+  while (*cursor) {
+    while (*cursor == L' ' || *cursor == L'\t') ++cursor;
+    if (!*cursor) break;
+    const wchar_t* begin = cursor;
+    while (*cursor && *cursor != L' ' && *cursor != L'\t') ++cursor;
+    if (static_cast<std::size_t>(cursor - begin) == 7 &&
+        _wcsnicmp(begin, L"-plugin", 7) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 HWND g_host = nullptr;
 HICON g_appIcon = nullptr;
 HANDLE g_singleInstanceMutex = nullptr;
@@ -53,6 +70,8 @@ HWND g_sortFingerprintOverlay = nullptr;
 HWND g_matchOverlay = nullptr;
 HWND g_doomsdayUnlockOverlay = nullptr;
 bool g_applyModeWhenWorkerStops = false;
+bool g_pluginMode = false;
+std::atomic<bool> g_pluginSessionStarted{false};
 
 enum class GameKind {
   None,
@@ -262,6 +281,7 @@ void WorkerMain() {
       continue;
     }
 
+    if (g_pluginMode) g_pluginSessionStarted.store(true, std::memory_order_relaxed);
     PostLog(T("status.running") + L" " + GameName(game));
     PostStatus(T("status.running") + L" " + GameName(game));
     switch (game) {
@@ -337,6 +357,7 @@ void WorkerMain() {
 
 void StartWorker() {
   if (gta5::app::runtime::Running()) return;
+  g_pluginSessionStarted.store(false, std::memory_order_relaxed);
   gta5::input::CancelAll();
   ResetAllInGameCaches();
   gta5::input::ConfigureSequenceTiming(
@@ -441,6 +462,10 @@ LRESULT CALLBACK HostProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       if (g_applyModeWhenWorkerStops) {
         g_applyModeWhenWorkerStops = false;
         PostMessageW(hwnd, WM_APP + 21, 0, 0);
+      }
+      if (g_pluginMode &&
+          g_pluginSessionStarted.load(std::memory_order_relaxed)) {
+        PostMessageW(hwnd, WM_CLOSE, 0, 0);
       }
       gta5::app::ui::Repaint();
       return 0;
@@ -712,7 +737,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int) {
   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   gta5::app::runtime::ConfigureLatencySensitiveProcess();
   g_appIcon = LoadAppIcon(inst);
+  g_pluginMode = HasPluginArgument(commandLine);
   gta5::app::ui::LoadPersistentSettings();
+  gta5::app::ui::SetPluginMode(g_pluginMode);
 
   const DWORD restartParentId = ElevatedRestartParentId(commandLine);
   if (restartParentId) {
@@ -738,7 +765,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int) {
     return 0;
   }
 
-  if (gta5::app::ui::NeedsFirstLaunchSetup() &&
+  if (!g_pluginMode && gta5::app::ui::NeedsFirstLaunchSetup() &&
       !gta5::app::ui::RunFirstLaunchSetup(inst, g_appIcon)) {
     ReleaseMutex(g_singleInstanceMutex);
     CloseHandle(g_singleInstanceMutex);
@@ -760,6 +787,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int) {
   }
   PostLog(ready);
   PostStatus(T("status.idle"));
+  if (g_pluginMode) StartWorker();
 
   MSG msg{};
   while (GetMessageW(&msg, nullptr, 0, 0)) {
