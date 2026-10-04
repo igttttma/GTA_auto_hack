@@ -29,7 +29,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: msvc
-          path: build/src/Release/auto_hack_7in1.exe
+          path: build/src/Release/auto_hack_8in1.exe
 
   #  MinGW Build 
   mingw:
@@ -61,7 +61,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mingw
-          path: build/src/auto_hack_7in1.exe
+          path: build/src/auto_hack_8in1.exe
 
   #  Release 
   release:
@@ -83,8 +83,8 @@ jobs:
         run: |
           TAG="${{ inputs.tag }}"
           mkdir -p dist
-          cp msvc/auto_hack_7in1.exe  "dist/auto_hack_7in1-${TAG}-msvc.exe"
-          cp mingw/auto_hack_7in1.exe "dist/auto_hack_7in1-${TAG}-mingw.exe"
+          cp msvc/auto_hack_8in1.exe  "dist/auto_hack_8in1-${TAG}-msvc.exe"
+          cp mingw/auto_hack_8in1.exe "dist/auto_hack_8in1-${TAG}-mingw.exe"
           sha256sum dist/*.exe > dist/checksums.txt
           ls -lh dist/
 

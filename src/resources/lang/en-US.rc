@@ -1,4 +1,4 @@
-﻿#pragma code_page(65001)
+#pragma code_page(65001)
 #include "../resource.h"
 
 LANGUAGE 9, 1
@@ -103,7 +103,7 @@ BEGIN
   IDS_NOTICE_ALREADY_RUNNING_MESSAGE "Another Auto Hack instance is already active."
   IDS_LOG_START "start"
   IDS_LOG_FOUND_GAME "found GTA5 client area"
-  IDS_LOG_READY "7-in-1 ready: press %HOTKEY% to start/stop"
+  IDS_LOG_READY "8-in-1 ready: press %HOTKEY% to start/stop"
   IDS_GAME_SLIDER "slider"
   IDS_GAME_FLASHING "flashing"
   IDS_GAME_CHOOSE_FINGERPRINT "choose fingerprint"

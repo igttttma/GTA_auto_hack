@@ -406,24 +406,24 @@ void PresetMotion::StartPulseRound(MotionJob* job, int sign, int pulses,
   SetNum(job, "pulses_left", pulses);
   SetNum(job, "round_start_angle", current);
   SetNum(job, "round_pulses", pulses);
-  game_input_->PulseTimed(sign > 0 ? kVkA : kVkD, pulse_width_);
+  game_input_->PulseTimed(sign > 0 ? kVkA : kVkD, 0.0);
   {
     char ev[64];
     std::snprintf(ev, sizeof(ev), "pulse %s %.3f", sign > 0 ? "A" : "D",
-                  pulse_width_);
+                  0.0);
     LogEvent(ev);
   }
   char buf[128];
-  std::snprintf(buf, sizeof(buf), "turn: %s pulse %s x%d (round %d, w=%.3fs)",
+  std::snprintf(buf, sizeof(buf), "turn: %s pulse %s x%d (round %d)",
                 job->mirror_id.c_str(), sign > 0 ? "A" : "D", pulses,
-                static_cast<int>(GetNum(*job, "rounds")), pulse_width_);
+                static_cast<int>(GetNum(*job, "rounds")));
   status_text_ = buf;
 }
 
 void PresetMotion::PulseGap(MotionJob* job, double now) {
   // The timed release comes from the input layer's pump thread, so the gap
   // only paces the next pulse; no settle between pulses in a round.
-  if (now - job->entered < pulse_width_ + kPulseGap) return;
+  if (now - job->entered < kPulseGap) return;
   const int left = static_cast<int>(GetNum(*job, "pulses_left"));
   if (left <= 1) {
     Enter(job, "pulse_settle", now);
@@ -432,11 +432,11 @@ void PresetMotion::PulseGap(MotionJob* job, double now) {
   const int sign = static_cast<int>(GetNum(*job, "pulse_sign"));
   Enter(job, "pulse_gap", now);
   SetNum(job, "pulses_left", left - 1);
-  game_input_->PulseTimed(sign > 0 ? kVkA : kVkD, pulse_width_);
+  game_input_->PulseTimed(sign > 0 ? kVkA : kVkD, 0.0);
   {
     char ev[64];
     std::snprintf(ev, sizeof(ev), "pulse %s %.3f", sign > 0 ? "A" : "D",
-                  pulse_width_);
+                  0.0);
     LogEvent(ev);
   }
 }
@@ -448,24 +448,6 @@ void PresetMotion::JudgePulse(MotionJob* job, double aim, double delta,
       job->failed = "SETTLE_TIMEOUT:" + job->mirror_id;
     }
     return;
-  }
-  // Pulse-width calibration: the round's measured per-pulse displacement
-  // steers the width toward exactly one lattice step (EMA, in-session only --
-  // it restarts from kPulseWidthSeed each launch, nothing is persisted).
-  // Below 1 deg the pulse did not really move (dropped pulse, misread) and
-  // says nothing; above ~2 steps the reading is too coarse to steer on.
-  const double fired = GetNum(*job, "round_pulses");
-  if (fired >= 1 && job->nums.count("round_start_angle")) {
-    const double per =
-        RingDelta(current, GetNum(*job, "round_start_angle")) *
-        GetNum(*job, "pulse_sign") / fired;
-    if (per >= 1.0 && per <= 11.0) {
-      const double sample = pulse_width_ * (kBucket / per);
-      pulse_width_ = std::min(
-          kPulseClampMax,
-          std::max(kPulseClampMin,
-                   pulse_width_ + kPulseLearn * (sample - pulse_width_)));
-    }
   }
   const int n = static_cast<int>(std::rint(delta / kBucket));
   if (std::abs(delta) < kBucketTol || n == 0) {
@@ -490,17 +472,13 @@ void PresetMotion::JudgePulse(MotionJob* job, double aim, double delta,
     const int overshoots =
         static_cast<int>(GetNum(*job, "overshoot_flips")) + 1;
     SetNum(job, "overshoot_flips", overshoots);
-    pulse_width_ = std::min(
-        kPulseClampMax, std::max(kPulseClampMin, pulse_width_ * kOvershootWidthCut));
-    LogEvent("overshoot x" + std::to_string(overshoots) + " width->" +
-             std::to_string(pulse_width_));
+    LogEvent("overshoot x" + std::to_string(overshoots));
     if (!NextRound(job, current, aim)) return;
     StartPulseRound(job, delta > 0 ? 1 : -1, 1, current, now);
     char buf[128];
     std::snprintf(buf, sizeof(buf),
-                  "turn: %s overshoot #%d -> corrective tap %s (w=%.3fs)",
-                  job->mirror_id.c_str(), overshoots, delta > 0 ? "A" : "D",
-                  pulse_width_);
+                  "turn: %s overshoot #%d -> corrective tap %s",
+                  job->mirror_id.c_str(), overshoots, delta > 0 ? "A" : "D");
     status_text_ = buf;
     return;
   }

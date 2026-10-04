@@ -11,7 +11,7 @@ $MingwBin = "C:\mingw64\bin"
 $Gcc = Join-Path $MingwBin "gcc.exe"
 $Gxx = Join-Path $MingwBin "g++.exe"
 $Windres = Join-Path $MingwBin "windres.exe"
-$Output = Join-Path $Root "auto_hack_7in1.exe"
+$Output = Join-Path $Root "auto_hack_8in1.exe"
 $Configuration = if ($Debug) { "Debug" } else { "Release" }
 $BuildDir = Join-Path $Root ("build-mingw-" + $Configuration.ToLowerInvariant())
 
@@ -67,7 +67,7 @@ Write-Host "Building in parallel..."
 & $Cmake @buildArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$BuiltOutput = Join-Path $BuildDir "src\auto_hack_7in1.exe"
+$BuiltOutput = Join-Path $BuildDir "src\auto_hack_8in1.exe"
 if (-not (Test-Path -LiteralPath $BuiltOutput)) {
   throw "Build completed but output was not found: $BuiltOutput"
 }

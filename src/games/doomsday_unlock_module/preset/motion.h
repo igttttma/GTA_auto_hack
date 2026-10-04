@@ -59,33 +59,22 @@ constexpr int kSelectRecoveryLimit = 3;
 // coast; the tap finisher absorbs its ~1.7 deg shot-to-shot spread.
 constexpr double kCoastDeg = 7.6;
 constexpr double kCoastLatencyS = 0.0;
-// Single-step pulse: a bare direction key tapped for pulse_width_ seconds
+// Single-step pulse: a zero-duration timed tap
 // moves the mirror exactly one lattice step and stops dead (the game
 // finishes the current step on release; step triggering is what a longer
 // hold would add).  The tap is timed by the input layer's 2 ms pump thread
 // (HeldKeyInput::PulseTimed), not by the observer tick: the width lives
 // near one frame period, where tick-quantized releases would be bimodal.
-// pulse_width_ starts at kPulseWidthSeed -- the width this machine's single
-// step was calibrated to (was learned+persisted to motion_tau.json; now a
-// fixed constant, so there is one less runtime file to manage) -- and is
-// still steered in-session by an EMA over each round's measured per-pulse
-// displacement. Nothing is written back to disk; every launch reseeds.
 // kPulseGap is the key-up -> next-pulse beat (no settle between pulses in
 // a round).  A residual beyond kPulseMaxPerRound steps goes back to a hold.
-constexpr double kPulseWidthSeed = 0.0765;
-constexpr double kPulseLearn = 0.6;
-constexpr double kPulseClampMin = 0.02;
-constexpr double kPulseClampMax = 0.25;
+// Start conservatively: the first few mirrors run before the in-session EMA
+// has a measured step to learn from.  The previous 76.5 ms seed consistently
+// over-travelled on faster input pumps, so the initial tap must leave margin;
+// later rounds still adapt toward the observed one-step width.
+// Zero-duration taps are released by the input pump on its next tick. This
+// avoids the startup over-travel seen with a nonzero calibrated width.
 constexpr double kPulseGap = 0.08;
 constexpr int kPulseMaxPerRound = 3;
-// Anti-oscillation: when a tap crosses the target (the settled residual flips
-// sign vs the tap direction -> the tap over-travelled, usually triggering a
-// second lattice step), the width is hard-cut by this factor for the single
-// corrective tap. Firmer than the EMA below so a +-5 deg limit cycle breaks in
-// one round instead of riding to kTurnRetryLimit; the shorter corrective tap
-// then lands inside the done band (<= kBucketTol) rather than crossing again.
-constexpr double kOvershootWidthCut = 0.5;
-
 // Shortest signed delta on the 0..180 ring, in (-90, 90].
 double RingDelta(double target, double current);
 
@@ -178,10 +167,6 @@ class PresetMotion {
   double visual_scale_ = 1;
   std::string current_selected_;
   bool selection_observed_ = false;
-  // Single-step pulse width (seconds): seeded from the calibrated constant
-  // kPulseWidthSeed and steered in-session by an EMA over pulse-round
-  // landings. Not persisted -- each launch starts from the seed.
-  double pulse_width_ = kPulseWidthSeed;
   // Observer tick period, measured live (EMA); only used to schedule the
   // hold release on the tick closest to the predicted crossing.
   double frame_period_ = 1.0 / 30.0;
