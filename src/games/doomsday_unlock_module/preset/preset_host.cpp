@@ -9,7 +9,6 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
 #include <sstream>
 
 extern "C" {
@@ -29,16 +28,9 @@ double NowMonotonic() {
       .count();
 }
 
-std::string ReadFileIfExists(const std::string& path) {
-  std::ifstream in(path, std::ios::binary);
-  if (!in) return "";
-  std::stringstream buffer;
-  buffer << in.rdbuf();
-  return buffer.str();
-}
-
 // The predicate/base library shared with the simulator runtime: extract
-// BASE_LIB from src/lua_runtime.js exactly like preset_runner.base_lib().
+// BASE_LIB from the embedded src/lua_runtime.js exactly like
+// preset_runner.base_lib().
 std::string BaseLib(std::string* error) {
   const auto embedded = doomsday_embedded::Find("lua_runtime.js");
   if (!embedded.empty()) {
@@ -49,22 +41,7 @@ std::string BaseLib(std::string* error) {
     const auto end = start == std::string::npos ? std::string::npos : source.find("`;", bodyStart);
     if (end != std::string::npos) return source.substr(bodyStart, end - bodyStart);
   }
-  for (const char* path : {"src/games/doomsday_unlock_module/lua_runtime.js",
-                           "../src/games/doomsday_unlock_module/lua_runtime.js",
-                           "doomsday_unlock_module/lua_runtime.js",
-                           "../src/lua_runtime.js", "src/lua_runtime.js",
-                           "../../src/lua_runtime.js"}) {
-    const std::string source = ReadFileIfExists(path);
-    if (source.empty()) continue;
-    const std::string marker = "const BASE_LIB = `";
-    const auto start = source.find(marker);
-    if (start == std::string::npos) break;
-    const auto bodyStart = start + marker.size();
-    const auto end = source.find("`;", bodyStart);
-    if (end == std::string::npos) break;
-    return source.substr(bodyStart, end - bodyStart);
-  }
-  *error = "cannot extract BASE_LIB from lua_runtime.js; runtime files out of sync";
+  *error = "cannot extract BASE_LIB from embedded lua_runtime.js";
   return "";
 }
 

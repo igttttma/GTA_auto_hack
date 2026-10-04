@@ -3,11 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
-#include <filesystem>
-#include <fstream>
 #include <set>
-#include <sstream>
 
 namespace matcher {
 
@@ -62,35 +58,17 @@ bool CenterToNode(double cx, double cy, const int board[4], double quantum,
   return true;
 }
 
-std::map<int, Signature> LoadSignatures(const std::string& maps_dir) {
+std::map<int, Signature> LoadSignatures() {
   std::map<int, Signature> signatures;
-  namespace fs = std::filesystem;
   std::vector<std::string> paths;
-  if (maps_dir == "__embedded__") {
-    for (int level = 1; level <= 14; ++level) {
-      paths.push_back(std::string("maps/level") + (level < 10 ? "0" : "") +
-                      std::to_string(level) + "/layout.json");
-    }
+  for (int level = 1; level <= 14; ++level) {
+    paths.push_back(std::string("maps/level") + (level < 10 ? "0" : "") +
+                    std::to_string(level) + "/layout.json");
   }
-  if (fs::exists(maps_dir)) {
-    for (const auto& entry : fs::directory_iterator(maps_dir)) {
-      if (!entry.is_directory()) continue;
-      const std::string lay = (entry.path() / "layout.json").string();
-      if (fs::exists(lay)) paths.push_back(lay);
-    }
-  }
-  std::sort(paths.begin(), paths.end());
   for (const auto& lay : paths) {
-    std::string raw;
-    const std::string normalized = std::filesystem::path(lay).generic_string();
-    const auto marker = normalized.find("maps/");
-    if (marker != std::string::npos) {
-      const auto embedded = doomsday_embedded::Find(std::string("maps/") + normalized.substr(marker + 5));
-      if (!embedded.empty()) raw.assign(embedded.data(), embedded.size());
-    }
-    std::ifstream in(lay, std::ios::binary);
-    std::stringstream buffer;
-    if (raw.empty()) { buffer << in.rdbuf(); raw = buffer.str(); }
+    const auto embedded = doomsday_embedded::Find(lay);
+    if (embedded.empty()) continue;
+    const std::string raw(embedded.data(), embedded.size());
     gtajson::Json doc;
     std::string error;
     if (!gtajson::Json::Parse(raw, &doc, &error)) continue;
@@ -171,24 +149,12 @@ std::map<int, int> GreedyBind(
 
 }  // namespace
 
-// Level layouts live in the workspace-root maps/; the exe can be launched
-// from the repo root or cpp/, so probe both.
-std::string MapsDir() {
-  for (const char* candidate : {"src/games/doomsday_unlock_module/maps",
-                                "../src/games/doomsday_unlock_module/maps",
-                                "doomsday_unlock_module/maps",
-                                "maps", "../maps"}) {
-    if (std::filesystem::exists(candidate)) return candidate;
-  }
-  return "__embedded__";
-}
-
 MatchResult MatchLevel(const std::vector<Node>& detected_mirrors,
                        const std::vector<Node>& detected_targets,
                        const int board[4], const std::map<int, Signature>* signatures_in) {
   const std::map<int, Signature> default_sigs = signatures_in
       ? std::map<int, Signature>()
-      : LoadSignatures(MapsDir());
+      : LoadSignatures();
   const std::map<int, Signature>& signatures =
       signatures_in ? *signatures_in : default_sigs;
   std::vector<Node> detM, detT;

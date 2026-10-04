@@ -68,7 +68,7 @@ std::pair<double, double> NodeCenter(const std::pair<double, double>& node,
 bool CenterToNode(double cx, double cy, const int board[4], double quantum,
                   double tolerance, std::pair<double, double>* node);
 
-std::map<int, Signature> LoadSignatures(const std::string& maps_dir);
+std::map<int, Signature> LoadSignatures();
 
 // Identify the level and bind detections (board-space centers) to authored
 // ids. Throws LevelMatchError when detection does not identify exactly one
