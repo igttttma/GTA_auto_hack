@@ -63,5 +63,7 @@ if(MSVC)
     set_property(TARGET games PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
-    target_compile_options(games PRIVATE /EHsc)
+    # The module sources contain UTF-8 localized string literals.  Explicitly
+    # select UTF-8 so MSVC does not decode them with the host code page.
+    target_compile_options(games PRIVATE /EHsc /utf-8)
 endif()

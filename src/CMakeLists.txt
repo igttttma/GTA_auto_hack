@@ -42,7 +42,11 @@ if(MSVC)
     set_property(TARGET ${PROJECT_NAME} PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
-    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc)
+    # Source files contain UTF-8 string literals (including localized Lua
+    # errors).  MSVC otherwise uses the active system code page, which can
+    # turn non-ASCII bytes into unterminated string literals.  Keep the
+    # behavior unchanged while making the compiler interpret sources as UTF-8.
+    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /utf-8)
 endif()
 
 # --- MinGW-w64 specific settings ---
