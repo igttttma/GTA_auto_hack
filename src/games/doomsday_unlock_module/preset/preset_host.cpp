@@ -1,4 +1,5 @@
 #include "preset/preset_host.h"
+#include "doomsday_embedded.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -39,6 +40,15 @@ std::string ReadFileIfExists(const std::string& path) {
 // The predicate/base library shared with the simulator runtime: extract
 // BASE_LIB from src/lua_runtime.js exactly like preset_runner.base_lib().
 std::string BaseLib(std::string* error) {
+  const auto embedded = doomsday_embedded::Find("lua_runtime.js");
+  if (!embedded.empty()) {
+    const std::string source(embedded);
+    const std::string marker = "const BASE_LIB = `";
+    const auto start = source.find(marker);
+    const auto bodyStart = start == std::string::npos ? 0 : start + marker.size();
+    const auto end = start == std::string::npos ? std::string::npos : source.find("`;", bodyStart);
+    if (end != std::string::npos) return source.substr(bodyStart, end - bodyStart);
+  }
   for (const char* path : {"src/games/doomsday_unlock_module/lua_runtime.js",
                            "../src/games/doomsday_unlock_module/lua_runtime.js",
                            "doomsday_unlock_module/lua_runtime.js",

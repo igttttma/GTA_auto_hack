@@ -2,6 +2,7 @@
 
 #include "common/processing.h"
 #include "app/localization.h"
+#include "doomsday_embedded.h"
 
 #include <cmath>
 #include <chrono>
@@ -847,6 +848,11 @@ void ObserverApp::StartAttack() {
                        1.0 / processing_scale_);
   const int level = match.level;
   std::string presetPath;
+  std::string presetCode;
+  const std::string presetName = level < 10 ? "presets/level0" + std::to_string(level) + ".lua"
+                                           : "presets/level" + std::to_string(level) + ".lua";
+  const auto embeddedPreset = doomsday_embedded::Find(presetName);
+  if (!embeddedPreset.empty()) presetCode.assign(embeddedPreset.data(), embeddedPreset.size());
   for (const char* dir : {"src/games/doomsday_unlock_module/presets",
                           "../src/games/doomsday_unlock_module/presets",
                           "doomsday_unlock_module/presets"}) {
@@ -856,14 +862,16 @@ void ObserverApp::StartAttack() {
     std::ifstream probe(candidate, std::ios::binary);
     if (probe) { presetPath = candidate; break; }
   }
-  std::ifstream presetFile(presetPath, std::ios::binary);
-  if (!presetFile) {
+  if (presetCode.empty() && !presetPath.empty()) {
+    std::ifstream presetFile(presetPath, std::ios::binary);
+    std::stringstream presetBuf;
+    presetBuf << presetFile.rdbuf();
+    presetCode = presetBuf.str();
+  }
+  if (presetCode.empty()) {
     FailAttack("preset unavailable");
     return;
   }
-  std::stringstream presetBuf;
-  presetBuf << presetFile.rdbuf();
-  const std::string presetCode = presetBuf.str();
 
   auto runner = std::make_unique<preset::PresetRunner>(
       this, preset_motion_.get(), match,

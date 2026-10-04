@@ -2,8 +2,21 @@ file(GLOB DOOMSDAY_LUA_SOURCES
     doomsday_unlock_module/third_party/lua-5.3.6/src/*.c
 )
 list(FILTER DOOMSDAY_LUA_SOURCES EXCLUDE REGEX "lua\\.c$|luac\\.c$|onelua\\.c$")
+file(GLOB DOOMSDAY_PRESETS CONFIGURE_DEPENDS doomsday_unlock_module/presets/*.lua)
+file(GLOB DOOMSDAY_MAPS CONFIGURE_DEPENDS doomsday_unlock_module/maps/*/layout.json)
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(DOOMSDAY_EMBEDDED ${CMAKE_CURRENT_BINARY_DIR}/doomsday_embedded.h)
+add_custom_command(OUTPUT ${DOOMSDAY_EMBEDDED}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/embed_doomsday.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/doomsday_unlock_module ${DOOMSDAY_EMBEDDED}
+    DEPENDS ${CMAKE_SOURCE_DIR}/tools/embed_doomsday.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/doomsday_unlock_module/lua_runtime.js
+            ${DOOMSDAY_PRESETS} ${DOOMSDAY_MAPS})
+add_custom_target(doomsday_embedded_resources DEPENDS ${DOOMSDAY_EMBEDDED})
 
 add_library(games STATIC
+    ${DOOMSDAY_EMBEDDED}
     ../input/key_input.cpp
     ../input/key_input.h
     ../input/held_key_input.cpp
@@ -37,11 +50,13 @@ add_library(games STATIC
     ${DOOMSDAY_LUA_SOURCES}
     games.h
 )
+add_dependencies(games doomsday_embedded_resources)
 
 target_include_directories(games PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/doomsday_unlock_module
     ${CMAKE_CURRENT_SOURCE_DIR}/doomsday_unlock_module/third_party/lua-5.3.6/src
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 target_compile_definitions(games PRIVATE

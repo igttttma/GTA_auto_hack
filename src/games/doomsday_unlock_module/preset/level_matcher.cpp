@@ -1,4 +1,5 @@
 #include "preset/level_matcher.h"
+#include "doomsday_embedded.h"
 
 #include <algorithm>
 #include <cmath>
@@ -65,6 +66,12 @@ std::map<int, Signature> LoadSignatures(const std::string& maps_dir) {
   std::map<int, Signature> signatures;
   namespace fs = std::filesystem;
   std::vector<std::string> paths;
+  if (maps_dir == "__embedded__") {
+    for (int level = 1; level <= 14; ++level) {
+      paths.push_back(std::string("maps/level") + (level < 10 ? "0" : "") +
+                      std::to_string(level) + "/layout.json");
+    }
+  }
   if (fs::exists(maps_dir)) {
     for (const auto& entry : fs::directory_iterator(maps_dir)) {
       if (!entry.is_directory()) continue;
@@ -74,12 +81,19 @@ std::map<int, Signature> LoadSignatures(const std::string& maps_dir) {
   }
   std::sort(paths.begin(), paths.end());
   for (const auto& lay : paths) {
+    std::string raw;
+    const std::string normalized = std::filesystem::path(lay).generic_string();
+    const auto marker = normalized.find("maps/");
+    if (marker != std::string::npos) {
+      const auto embedded = doomsday_embedded::Find(std::string("maps/") + normalized.substr(marker + 5));
+      if (!embedded.empty()) raw.assign(embedded.data(), embedded.size());
+    }
     std::ifstream in(lay, std::ios::binary);
     std::stringstream buffer;
-    buffer << in.rdbuf();
+    if (raw.empty()) { buffer << in.rdbuf(); raw = buffer.str(); }
     gtajson::Json doc;
     std::string error;
-    if (!gtajson::Json::Parse(buffer.str(), &doc, &error)) continue;
+    if (!gtajson::Json::Parse(raw, &doc, &error)) continue;
     Signature sig;
     sig.level = static_cast<int>(doc.Find("level")->AsNumber());
     const Json& board = *doc.Find("board");
@@ -166,7 +180,7 @@ std::string MapsDir() {
                                 "maps", "../maps"}) {
     if (std::filesystem::exists(candidate)) return candidate;
   }
-  throw LevelMatchError("maps directory not found (looked in maps, ../maps)");
+  return "__embedded__";
 }
 
 MatchResult MatchLevel(const std::vector<Node>& detected_mirrors,
