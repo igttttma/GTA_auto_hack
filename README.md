@@ -1,4 +1,4 @@
-# Auto Hack 7in1
+# Auto Hack 8in1
 
 A Windows C++/Win32 helper for the following GTA Online hacking minigames:
 
@@ -36,7 +36,7 @@ if (-not (Get-Command $gxx -ErrorAction SilentlyContinue)) {
   $windres = "C:\mingw64\bin\windres.exe"
 }
 
-$resourceObject = Join-Path $env:TEMP "auto_hack_7in1_app_$PID.o"
+$resourceObject = Join-Path $env:TEMP "auto_hack_8in1_app_$PID.o"
 & $windres "$root\src\resources\app.rc" -I "$root\src\resources" `
   --codepage=65001 -O coff -o $resourceObject
 
@@ -67,7 +67,7 @@ $resourceObject = Join-Path $env:TEMP "auto_hack_7in1_app_$PID.o"
   "$root\src\games\doomsday_unlock_module\preset\preset_host.cpp" `
   $resourceObject `
   -lgdi32 -luser32 -lshell32 -lgdiplus -lcomctl32 -ldwmapi `
-  -o "$root\auto_hack_7in1.exe"
+  -o "$root\auto_hack_8in1.exe"
 
 Remove-Item -LiteralPath $resourceObject -Force
 ```
@@ -76,7 +76,7 @@ Remove-Item -LiteralPath $resourceObject -Force
 
 ```powershell
 $root = (Get-Location).Path
-$resourceFile = Join-Path $env:TEMP "auto_hack_7in1_app_$PID.res"
+$resourceFile = Join-Path $env:TEMP "auto_hack_8in1_app_$PID.res"
 
 rc /nologo /c 65001 /I "$root\src\resources" `
   /fo "$resourceFile" "$root\src\resources\app.rc"
@@ -108,7 +108,7 @@ cl /nologo /std:c++17 /EHsc /O2 /MT /DUNICODE /D_UNICODE /DNOMINMAX `
   "$root\src\games\doomsday_unlock_module\preset\preset_host.cpp" `
   "$resourceFile" `
   /link /SUBSYSTEM:WINDOWS `
-  /OUT:"$root\auto_hack_7in1.exe" `
+  /OUT:"$root\auto_hack_8in1.exe" `
   user32.lib gdi32.lib shell32.lib gdiplus.lib comctl32.lib dwmapi.lib
 
 Remove-Item -LiteralPath $resourceFile -Force
@@ -117,7 +117,7 @@ Remove-Item -LiteralPath $resourceFile -Force
 The compiled executable is written to:
 
 ```text
-auto_hack_7in1.exe
+auto_hack_8in1.exe
 ```
 
 ## Configuration
@@ -151,7 +151,7 @@ Delay presets are `0` for Fast (`20/20 ms`), `1` for Slow (`40/40 ms`), and `2` 
 
 ## Usage
 
-1. Build and run `auto_hack_7in1.exe`.
+1. Build and run `auto_hack_8in1.exe`.
 2. Start the target game and open a supported hacking minigame.
 3. Press the configured hotkey to start or stop detection/automation.
 4. Use the taskbar button or HUD to bring the overlay back if needed.
@@ -159,3 +159,4 @@ Delay presets are `0` for Fast (`20/20 ms`), `1` for Slow (`40/40 ms`), and `2` 
 ## Repository Notes
 
 Generated binaries, local build scripts, logs, and local settings are excluded from version control. Commit the source files, README, example config, `.gitignore`, and `.gitattributes`.
+
