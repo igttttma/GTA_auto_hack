@@ -88,6 +88,7 @@ bool g_trackingHudMouse = false;
 UINT g_hudDpi = kDesignDpi;
 UINT g_setupDpi = kDesignDpi;
 UINT g_hintDpi = kDesignDpi;
+UINT g_noticeDpi = kDesignDpi;
 
 int ScaleForDpi(int value, UINT dpi) { return MulDiv(value, static_cast<int>(dpi), kDesignDpi); }
 
@@ -1148,10 +1149,27 @@ RECT NoticeOkRect() { return RECT{266, 130, 366, 160}; }
 LRESULT CALLBACK NoticeProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   switch (msg) {
     case WM_CREATE:
-      SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, 380, 172, 14, 14), TRUE);
+      g_noticeDpi = GetDpiForWindow(hwnd);
+      SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, ScaleForDpi(380, g_noticeDpi),
+                                            ScaleForDpi(172, g_noticeDpi),
+                                            ScaleForDpi(14, g_noticeDpi),
+                                            ScaleForDpi(14, g_noticeDpi)), TRUE);
       return 0;
+    case WM_DPICHANGED: {
+      g_noticeDpi = HIWORD(wp);
+      const RECT* suggested = reinterpret_cast<const RECT*>(lp);
+      SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
+                   ScaleForDpi(380, g_noticeDpi), ScaleForDpi(172, g_noticeDpi),
+                   SWP_NOZORDER | SWP_NOACTIVATE);
+      SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, ScaleForDpi(380, g_noticeDpi),
+                                            ScaleForDpi(172, g_noticeDpi),
+                                            ScaleForDpi(14, g_noticeDpi),
+                                            ScaleForDpi(14, g_noticeDpi)), TRUE);
+      InvalidateRect(hwnd, nullptr, FALSE);
+      return 0;
+    }
     case WM_LBUTTONDOWN: {
-      POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+      POINT pt = ToDesignPoint(POINT{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}, g_noticeDpi);
       if (Contains(NoticeCloseRect(), pt) || Contains(NoticeOkRect(), pt)) {
         DestroyWindow(hwnd);
       } else if (pt.y < 68) {
@@ -1167,7 +1185,9 @@ LRESULT CALLBACK NoticeProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT client{};
       GetClientRect(hwnd, &client);
-      DrawDialogBase(hdc, client, g_noticeTitle, T("notice.subtitle"), NoticeCloseRect());
+      SetDesignTransform(hdc, g_noticeDpi);
+      RECT designClient{0, 0, 380, 172};
+      DrawDialogBase(hdc, designClient, g_noticeTitle, T("notice.subtitle"), NoticeCloseRect());
       HFONT font = CreateUiFont(22, FW_SEMIBOLD);
       HGDIOBJ oldFont = SelectObject(hdc, font);
       SetBkMode(hdc, TRANSPARENT);
@@ -1301,17 +1321,12 @@ void ShowNotice(HINSTANCE instance, HICON icon, const std::wstring& title, const
   g_dialogIcon = icon;
   g_noticeTitle = title;
   g_noticeMessage = message;
-  DPI_AWARENESS_CONTEXT previousDpi =
-      SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED);
   HWND hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, L"AutoHackNoticeV1", title.c_str(), WS_POPUP,
-                              CW_USEDEFAULT, CW_USEDEFAULT, 380, 172,
+                              CW_USEDEFAULT, CW_USEDEFAULT, ScaleForDpi(380, GetDpiForSystem()),
+                              ScaleForDpi(172, GetDpiForSystem()),
                               nullptr, nullptr, instance, nullptr);
-  if (!hwnd) {
-    if (previousDpi) SetThreadDpiAwarenessContext(previousDpi);
-    return;
-  }
-  CenterWindow(hwnd, 380, 172);
-  if (previousDpi) SetThreadDpiAwarenessContext(previousDpi);
+  if (!hwnd) return;
+  CenterWindow(hwnd, ScaleForDpi(380, g_noticeDpi), ScaleForDpi(172, g_noticeDpi));
   RunModalWindow(hwnd);
 }
 
